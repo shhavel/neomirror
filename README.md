@@ -171,7 +171,7 @@ It is possible to use it outside of ActiveRecord (there is no dependency). Just 
 
 Also specify primary key attribute if it is differ from `id` and class don't `respond_to? :primary_key` method.
 
-```
+```ruby
 class Postcode
   attr_accessor :code
   include Neomirror::Node
