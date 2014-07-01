@@ -163,7 +163,7 @@ class Staff < ActiveRecord::Base
 end
 ```
 
-Even possible reflect model as node (vertex) and relation(s) (edge).
+Even possible reflect model as node (vertex) and relationship(s) (edge).
 
 ```ruby
 class Group < ActiveRecord::Base
