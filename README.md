@@ -163,7 +163,20 @@ class Staff < ActiveRecord::Base
 end
 ```
 
-Even possible reflect model as node (vertex) and relation(s) (edge). But it is probably not needed.
+Even possible reflect model as node (vertex) and relation(s) (edge).
+
+```ruby
+class Group < ActiveRecord::Base
+  include Neomirror::Node
+  include Neomirror::Relationship
+
+  belongs_to :parent, class_name: 'Group', foreign_key: :parent_id
+
+  mirror_neo_node
+
+  mirror_neo_relationship start_node: :self, end_node: :parent, type: :CHILD_OF
+end
+```
 
 ## Compatibility
 
@@ -176,7 +189,7 @@ class Postcode
   attr_accessor :code
   include Neomirror::Node
 
-  self.node_primary_key = :code
+  self.neo_primary_key = :code
 
   mirror_neo_node
 end

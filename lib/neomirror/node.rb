@@ -23,10 +23,10 @@ module Neomirror::Node
       @neo_mirror
     end
 
-    def node_primary_key
-      @node_primary_key ||= self.respond_to?(:primary_key) ? self.__send__(:primary_key) : :id
+    def neo_primary_key
+      @neo_primary_key ||= self.respond_to?(:primary_key) ? self.__send__(:primary_key) : :id
     end
-    attr_writer :node_primary_key
+    attr_writer :neo_primary_key
   end
 
   def neo_node
@@ -36,20 +36,17 @@ module Neomirror::Node
   alias_method :node, :neo_node
 
   def neo_node_properties
-    neo_node_properties = ::Hash.new
-    neo_node_properties[:id] = self.__send__(self.class.node_primary_key)
+    hash = { :id => self.__send__(self.class.neo_primary_key) }
     if self.class.neo_mirror && self.class.neo_mirror[:properties]
-      self.class.neo_mirror[:properties].each do |property, rule|
-        neo_node_properties[property] = rule.call(self)
-      end
+      self.class.neo_mirror[:properties].each { |property, rule| hash[property] = rule.call(self) }
     end
-    neo_node_properties
+    hash
   end
 
   def find_neo_node
     raise "Couldn't find neo_node declaration" unless self.class.neo_mirror
     label = self.class.neo_mirror[:label]
-    id = self.__send__(self.class.node_primary_key)
+    id = self.__send__(self.class.neo_primary_key)
     return nil unless node = ::Neomirror.neo.find_nodes_labeled(label, { :id => id }).first
     @neo_node = ::Neography::Node.load(node, ::Neomirror.neo)
   end
@@ -75,9 +72,5 @@ module Neomirror::Node
     return true unless self.class.neo_mirror && find_neo_node
     ::Neomirror.neo.delete_node!(@neo_node)
     true
-  end
-
-  def neo_node_to_cypher
-    ":#{self.class.neo_mirror[:label]} {id:#{self.__send__(self.class.node_primary_key)}}"
   end
 end

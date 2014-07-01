@@ -8,7 +8,7 @@ ENV['NEO_URL'] ||= "http://127.0.0.1:7474"
 Neomirror.connection = Neography::Rest.new(ENV['NEO_URL'])
 
 ActiveRecord::Base.connection.execute('CREATE TABLE premises ("id" INTEGER PRIMARY KEY NOT NULL)')
-ActiveRecord::Base.connection.execute('CREATE TABLE groups ("id" INTEGER PRIMARY KEY NOT NULL)')
+ActiveRecord::Base.connection.execute('CREATE TABLE groups ("id" INTEGER PRIMARY KEY NOT NULL, "parent_id" INTEGER DEFAULT NULL)')
 ActiveRecord::Base.connection.execute('CREATE TABLE users ("id" INTEGER PRIMARY KEY NOT NULL, "name" varchar(255) NOT NULL)')
 ActiveRecord::Base.connection.execute('CREATE TABLE memberships ("id" INTEGER PRIMARY KEY NOT NULL, "premises_id" INTEGER DEFAULT NULL, "group_id" INTEGER DEFAULT NULL)')
 ActiveRecord::Base.connection.execute('CREATE TABLE staff ("id" INTEGER PRIMARY KEY NOT NULL, "user_id" INTEGER DEFAULT NULL, "premises_id" INTEGER DEFAULT NULL, "group_id" INTEGER DEFAULT NULL, "roles" TEXT)')

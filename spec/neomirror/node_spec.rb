@@ -61,18 +61,12 @@ describe Neomirror::Node do
     end
   end
 
-  describe ".node_primary_key" do
+  describe ".neo_primary_key" do
     let(:postcode) { Postcode.new.tap { |p| p.code = 'ABC' } }
 
     it "sets custom primary key" do
       postcode.neo_node.should be_a Neography::Node
       postcode.neo_node.id.should == 'ABC'
-    end
-  end
-
-  describe "#neo_node_to_cypher" do
-    it "represents node as cypher element" do
-      user.neo_node_to_cypher.should == ":User {id:#{user.id}}"
     end
   end
 end

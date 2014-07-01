@@ -92,6 +92,13 @@ describe Neomirror::Relationship do
       staff.find_neo_relationship(type: :VISITOR_OF).should be_nil
       staff.find_neo_relationship(type: :MANAGER_OF).should be_a Neography::Relationship
     end
+
+    it "destroys relationship on update if actual relationship disappears (both nodes must be present)" do
+      staff_of_premises
+      Neomirror.neo.execute_query("MATCH (:User {id: #{user.id}})-[r:STAFF_OF]->(:Premises {id: #{premises.id}}) RETURN r")["data"].first.should be_present
+      staff_of_premises.update(premises_id: nil)
+      Neomirror.neo.execute_query("MATCH (:User {id: #{user.id}})-[r:STAFF_OF]->(:Premises {id: #{premises.id}}) RETURN r")["data"].first.should be_nil
+    end
   end
 
   describe "#destroy_neo_relationship" do
