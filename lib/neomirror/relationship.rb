@@ -19,7 +19,7 @@ module Neomirror::Relationship
 
     # Find declaration by partial options.
     def rel_mirror(p)
-      return rel_mirrors.first unless p
+      return rel_mirrors.first unless p.present?
       rel_mirrors.find { |m| (!p[:start_node] || p[:start_node] == m[:start_node]) &&
         (!p[:end_node] || p[:end_node] == m[:end_node]) && (!p[:type] || p[:type] == m[:type]) }
     end
@@ -35,6 +35,7 @@ module Neomirror::Relationship
       m[:properties] = Neomirror::PropertyCollector.new(&block).properties if block_given?
       m[:if] = m[:if].to_proc if m[:if]
       m[:index_name] = "#{m[:start_node] == :self ? class_name.downcase : m[:start_node]}_#{m[:type]}_#{m[:end_node] == :self ? class_name.downcase : m[:end_node]}"
+      m[:complete] = true # indicates a completely filled rel mirror hash (not partial, that used for search)
       ::Neomirror.neo.create_relationship_index(m[:index_name])
       rel_mirrors << m
     end
@@ -46,59 +47,66 @@ module Neomirror::Relationship
   end
 
   def neo_relationship(partial_mirror = nil)
-    find_neo_relationship(partial_mirror) || create_neo_relationship(partial_mirror)
+    raise "Couldn't find neo_relationship declaration" unless rel_mirror = self.class.rel_mirror(partial_mirror)
+    find_neo_relationship(rel_mirror) || create_neo_relationship(rel_mirror)
   end
   alias_method :neo_rel, :neo_relationship
 
-  def neo_relationship_properties(partial_mirror = nil)
-    raise "Couldn't find neo_relationship declaration" unless rel_mirror = self.class.rel_mirror(partial_mirror)
+  def neo_relationship_properties(rel_mirror = {})
+    raise "Couldn't find neo_relationship declaration" unless rel_mirror[:complete] || (rel_mirror = self.class.rel_mirror(rel_mirror))
     return nil unless rel_mirror[:properties]
     rel_mirror[:properties].reduce({}) { |hash, (property, rule)| hash[property] = rule.call(self); hash }
   end
 
-  def neo_relationship_must_exist?(partial_mirror = nil)
-    raise "Couldn't find neo_relationship declaration" unless rel_mirror = self.class.rel_mirror(partial_mirror)
+  def neo_relationship_must_exist?(rel_mirror = {})
+    raise "Couldn't find neo_relationship declaration" unless rel_mirror[:complete] || (rel_mirror = self.class.rel_mirror(rel_mirror))
     !rel_mirror[:if] || !!rel_mirror[:if].call(self)
   end
 
-  def find_neo_relationship(partial_mirror = nil)
-    raise "Couldn't find neo_relationship declaration" unless rel_mirror = self.class.rel_mirror(partial_mirror)
+  def find_neo_relationship(rel_mirror = {})
+    raise "Couldn't find neo_relationship declaration" unless rel_mirror[:complete] || (rel_mirror = self.class.rel_mirror(rel_mirror))
     return nil unless rel = ::Neomirror.neo.get_relationship_index(rel_mirror[:index_name], :id, self.__send__(self.class.neo_primary_key))
-    @neo_rel = ::Neography::Relationship.load(rel, ::Neomirror.neo)
+    ::Neography::Relationship.load(rel, ::Neomirror.neo)
   end
 
-  def create_neo_relationship(partial_mirror = nil)
-    raise "Couldn't find neo_relationship declaration" unless rel_mirror = self.class.rel_mirror(partial_mirror)
+  def create_neo_relationship(rel_mirror = {})
+    raise "Couldn't find neo_relationship declaration" unless rel_mirror[:complete] || (rel_mirror = self.class.rel_mirror(rel_mirror))
     return nil unless (m1 = related_object(rel_mirror[:start_node])) && (m2 = related_object(rel_mirror[:end_node])) &&
       neo_relationship_must_exist?(rel_mirror)
-    @neo_rel = ::Neography::Relationship.create(rel_mirror[:type], m1.neo_node, m2.neo_node, neo_relationship_properties(rel_mirror))
-    ::Neomirror.neo.add_relationship_to_index(rel_mirror[:index_name], :id, self.__send__(self.class.neo_primary_key), @neo_rel)
-    @neo_rel
+    neo_rel = ::Neography::Relationship.create(rel_mirror[:type], m1.neo_node, m2.neo_node, neo_relationship_properties(rel_mirror))
+    ::Neomirror.neo.add_relationship_to_index(rel_mirror[:index_name], :id, self.__send__(self.class.neo_primary_key), neo_rel)
+    neo_rel
   end
 
   def related_object(method_name)
     method_name == :self ? self : self.__send__(method_name)
   end
 
-  def update_neo_relationship(partial_mirror = nil)
-    raise "Couldn't find neo_relationship declaration" unless rel_mirror = self.class.rel_mirror(partial_mirror)
-    if find_neo_relationship(rel_mirror)
+  def update_neo_relationship(rel_mirror = {})
+    raise "Couldn't find neo_relationship declaration" unless rel_mirror[:complete] || (rel_mirror = self.class.rel_mirror(rel_mirror))
+    if neo_rel = find_neo_relationship(rel_mirror)
       if related_object(rel_mirror[:start_node]) && related_object(rel_mirror[:end_node]) && neo_relationship_must_exist?(rel_mirror)
-        ::Neomirror.neo.reset_relationship_properties(@neo_rel, neo_relationship_properties(rel_mirror))
+        if related_object(rel_mirror[:start_node]).neo_node.id != neo_rel.start_node.id || related_object(rel_mirror[:end_node]).neo_node.id != neo_rel.end_node.id
+          destroy_neo_relationship(rel_mirror, neo_rel: neo_rel)
+          create_neo_relationship(rel_mirror)
+        else
+          ::Neomirror.neo.reset_relationship_properties(neo_rel, neo_relationship_properties(rel_mirror))
+        end
       else
-        ::Neomirror.neo.remove_relationship_from_index(rel_mirror[:index_name], :id, self.__send__(self.class.neo_primary_key), @neo_rel)
-        ::Neomirror.neo.delete_relationship(@neo_rel)
+        destroy_neo_relationship(rel_mirror, neo_rel: neo_rel)
       end
     else
       create_neo_relationship(rel_mirror) if neo_relationship_must_exist?(rel_mirror)
     end
   end
 
-  def destroy_neo_relationship(partial_mirror = nil)
-    raise "Couldn't find neo_relationship declaration" unless rel_mirror = self.class.rel_mirror(partial_mirror)
-    if find_neo_relationship(rel_mirror)
-      ::Neomirror.neo.remove_relationship_from_index(rel_mirror[:index_name], :id, self.__send__(self.class.neo_primary_key), @neo_rel)
-      ::Neomirror.neo.delete_relationship(@neo_rel)
+  def destroy_neo_relationship(rel_mirror = {}, options = {})
+    raise "Couldn't find neo_relationship declaration" unless rel_mirror[:complete] || (rel_mirror = self.class.rel_mirror(rel_mirror))
+    if neo_rel = options.fetch(:neo_rel, find_neo_relationship(rel_mirror))
+      ::Neomirror.neo.remove_relationship_from_index(rel_mirror[:index_name], :id, self.__send__(self.class.neo_primary_key), neo_rel)
+      ::Neomirror.neo.delete_relationship(neo_rel)
+    else
+      true
     end
   end
 

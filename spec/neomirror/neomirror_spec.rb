@@ -4,6 +4,7 @@ describe Neomirror do
   describe "Reflection of model as node and relation" do
     let(:group) { create(:group) }
     let(:child_group) { create(:group, parent: group) }
+    let(:other_group) { create(:group) }
 
     it "creates neo4j nodes" do
       group.find_neo_node.should be_a Neography::Node
@@ -20,6 +21,13 @@ describe Neomirror do
       child_group.update(parent_id: nil)
       child_group.find_neo_relationship.should be_nil
       Neomirror.neo.execute_query("MATCH (:Group {id: #{child_group.id}})-[r:CHILD_OF]->(:Group {id: #{group.id}}) RETURN r")["data"].first.should be_nil
+    end
+
+    it "recreates itself if at least one of nodes is changed on update" do
+      child_group.update(parent_id: other_group.id)
+      child_group.find_neo_relationship.should be_a Neography::Relationship
+      Neomirror.neo.execute_query("MATCH (:Group {id: #{child_group.id}})-[r:CHILD_OF]->(:Group {id: #{group.id}}) RETURN r")["data"].first.should be_nil
+      Neomirror.neo.execute_query("MATCH (:Group {id: #{child_group.id}})-[r:CHILD_OF]->(:Group {id: #{other_group.id}}) RETURN r")["data"].first.should be_present
     end
   end
 end

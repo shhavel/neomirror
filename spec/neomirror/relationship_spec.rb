@@ -8,6 +8,7 @@ describe Neomirror::Relationship do
   let(:staff_of_premises) { create(:staff, user: user, premises: premises) }
   let(:staff_of_group) { create(:staff, user: user, group: group) }
   let(:staff) { create(:staff, user: user, premises: premises, group: group) }
+  let(:other_premises) { create(:premises) }
 
   describe "#find_neo_relationship" do
     it "searches neo4j relationship, returns Neography::Relationship instance" do
@@ -98,6 +99,14 @@ describe Neomirror::Relationship do
       Neomirror.neo.execute_query("MATCH (:User {id: #{user.id}})-[r:STAFF_OF]->(:Premises {id: #{premises.id}}) RETURN r")["data"].first.should be_present
       staff_of_premises.update(premises_id: nil)
       Neomirror.neo.execute_query("MATCH (:User {id: #{user.id}})-[r:STAFF_OF]->(:Premises {id: #{premises.id}}) RETURN r")["data"].first.should be_nil
+    end
+
+    it "removes itself and recreate if at least one of related object has changed" do
+      staff_of_premises
+      Neomirror.neo.execute_query("MATCH (:User {id: #{user.id}})-[r:STAFF_OF]->(:Premises {id: #{premises.id}}) RETURN r")["data"].first.should be_present
+      staff_of_premises.update(premises_id: other_premises.id)
+      Neomirror.neo.execute_query("MATCH (:User {id: #{user.id}})-[r:STAFF_OF]->(:Premises {id: #{premises.id}}) RETURN r")["data"].first.should be_nil
+      Neomirror.neo.execute_query("MATCH (:User {id: #{user.id}})-[r:STAFF_OF]->(:Premises {id: #{other_premises.id}}) RETURN r")["data"].first.should be_present
     end
   end
 
