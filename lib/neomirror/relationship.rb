@@ -20,8 +20,10 @@ module Neomirror::Relationship
     # Find declaration by partial options.
     def rel_mirror(p)
       return rel_mirrors.first unless p.present?
-      rel_mirrors.find { |m| (!p[:start_node] || p[:start_node] == m[:start_node]) &&
+      rel_mirror = rel_mirrors.find { |m| (!p[:start_node] || p[:start_node] == m[:start_node]) &&
         (!p[:end_node] || p[:end_node] == m[:end_node]) && (!p[:type] || p[:type] == m[:type]) }
+      create_neo_relationship_index(rel_mirror) if rel_mirror && !rel_mirror[:complete]
+      rel_mirror
     end
 
     def mirror_neo_relationship(options, &block)
@@ -35,14 +37,7 @@ module Neomirror::Relationship
       m[:properties] = Neomirror::PropertyCollector.new(&block).properties if block_given?
       m[:if] = m[:if].to_proc if m[:if]
       m[:index_name] = "#{m[:start_node] == :self ? class_name.downcase : m[:start_node]}_#{m[:type]}_#{m[:end_node] == :self ? class_name.downcase : m[:end_node]}"
-      m[:complete] = true # indicates a completely filled rel mirror hash (not partial, that used for search)
-      n = 0
-      begin
-        ::Neomirror.neo.create_relationship_index(m[:index_name])
-      rescue Exception => ex
-        retry if (n += 1) <= 4
-        raise ex
-      end
+      create_neo_relationship_index(m)
       rel_mirrors << m
     end
 
@@ -50,6 +45,13 @@ module Neomirror::Relationship
       @neo_primary_key ||= self.respond_to?(:primary_key) ? self.__send__(:primary_key) : :id
     end
     attr_writer :neo_primary_key
+
+  private
+    def create_neo_relationship_index(rel_mirror)
+      ::Neomirror.neo.create_relationship_index(rel_mirror[:index_name])
+      rel_mirror[:complete] = true # Indicates a completely filled rel mirror hash (not partial, that used for search). Also indicates that index was created.
+    rescue
+    end
   end
 
   def neo_relationship(partial_mirror = nil)

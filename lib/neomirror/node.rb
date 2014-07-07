@@ -12,6 +12,8 @@ module Neomirror::Node
         return nil unless a = self.ancestors.drop(1).find { |c| c.respond_to?(:neo_mirror) && c.neo_mirror }
         a.neo_mirror
       end
+      create_neo_node_constraint unless @neo_mirror[:indexed]
+      @neo_mirror
     end
 
     def mirror_neo_node(options = {}, &block)
@@ -19,13 +21,7 @@ module Neomirror::Node
       @neo_mirror = options
       @neo_mirror[:label] ||= self.name.gsub(/^.*::/, '').to_sym # demodulize
       @neo_mirror[:properties] = ::Neomirror::PropertyCollector.new(&block).properties if block_given?
-      n = 0
-      begin
-        ::Neomirror.neo.execute_query("CREATE CONSTRAINT ON (n:#{@neo_mirror[:label]}) ASSERT n.id IS UNIQUE")
-      rescue Exception => ex
-        retry if (n += 1) <= 4
-        raise ex
-      end
+      create_neo_node_constraint
       @neo_mirror
     end
 
@@ -33,6 +29,13 @@ module Neomirror::Node
       @neo_primary_key ||= self.respond_to?(:primary_key) ? self.__send__(:primary_key) : :id
     end
     attr_writer :neo_primary_key
+
+  private
+    def create_neo_node_constraint
+      ::Neomirror.neo.execute_query("CREATE CONSTRAINT ON (n:#{@neo_mirror[:label]}) ASSERT n.id IS UNIQUE")
+      @neo_mirror[:indexed] = true
+    rescue
+    end
   end
 
   def neo_node
