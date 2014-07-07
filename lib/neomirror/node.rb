@@ -19,7 +19,13 @@ module Neomirror::Node
       @neo_mirror = options
       @neo_mirror[:label] ||= self.name.gsub(/^.*::/, '').to_sym # demodulize
       @neo_mirror[:properties] = ::Neomirror::PropertyCollector.new(&block).properties if block_given?
-      ::Neomirror.neo.execute_query("CREATE CONSTRAINT ON (n:#{@neo_mirror[:label]}) ASSERT n.id IS UNIQUE")
+      n = 0
+      begin
+        ::Neomirror.neo.execute_query("CREATE CONSTRAINT ON (n:#{@neo_mirror[:label]}) ASSERT n.id IS UNIQUE")
+      rescue Exception => ex
+        retry if (n += 1) <= 4
+        raise ex
+      end
       @neo_mirror
     end
 
@@ -45,23 +51,41 @@ module Neomirror::Node
 
   def find_neo_node
     raise "Couldn't find neo_node declaration" unless self.class.neo_mirror
-    label = self.class.neo_mirror[:label]
-    id = self.__send__(self.class.neo_primary_key)
-    return nil unless node = ::Neomirror.neo.find_nodes_labeled(label, { :id => id }).first
-    @neo_node = ::Neography::Node.load(node, ::Neomirror.neo)
+    n = 0
+    begin
+      label = self.class.neo_mirror[:label]
+      id = self.__send__(self.class.neo_primary_key)
+      return nil unless node = ::Neomirror.neo.find_nodes_labeled(label, { :id => id }).first
+      @neo_node = ::Neography::Node.load(node, ::Neomirror.neo)
+    rescue Exception => ex
+      retry if (n += 1) <= 4
+      raise ex
+    end
   end
 
   def create_neo_node
     return true unless self.class.neo_mirror
-    @neo_node = ::Neography::Node.create(neo_node_properties, ::Neomirror.neo) 
-    ::Neomirror.neo.set_label(@neo_node, self.class.neo_mirror[:label])
-    @neo_node
+    n = 0
+    begin
+      @neo_node = ::Neography::Node.create(neo_node_properties, ::Neomirror.neo)
+      ::Neomirror.neo.set_label(@neo_node, self.class.neo_mirror[:label])
+      @neo_node
+    rescue Exception => ex
+      retry if (n += 1) <= 4
+      raise ex
+    end
   end
 
   def update_neo_node
     return true unless self.class.neo_mirror
     if find_neo_node
-      ::Neomirror.neo.reset_node_properties(@neo_node, neo_node_properties) if self.class.neo_mirror[:properties]
+      n = 0
+      begin
+        ::Neomirror.neo.reset_node_properties(@neo_node, neo_node_properties) if self.class.neo_mirror[:properties]
+      rescue Exception => ex
+        retry if (n += 1) <= 4
+        raise ex
+      end
       true
     else
       create_neo_node
@@ -70,7 +94,13 @@ module Neomirror::Node
 
   def destroy_neo_node
     return true unless self.class.neo_mirror && find_neo_node
-    ::Neomirror.neo.delete_node!(@neo_node)
+    n = 0
+    begin
+      ::Neomirror.neo.delete_node!(@neo_node)
+    rescue Exception => ex
+      retry if (n += 1) <= 4
+      raise ex
+    end
     true
   end
 end

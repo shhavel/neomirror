@@ -36,7 +36,13 @@ module Neomirror::Relationship
       m[:if] = m[:if].to_proc if m[:if]
       m[:index_name] = "#{m[:start_node] == :self ? class_name.downcase : m[:start_node]}_#{m[:type]}_#{m[:end_node] == :self ? class_name.downcase : m[:end_node]}"
       m[:complete] = true # indicates a completely filled rel mirror hash (not partial, that used for search)
-      ::Neomirror.neo.create_relationship_index(m[:index_name])
+      n = 0
+      begin
+        ::Neomirror.neo.create_relationship_index(m[:index_name])
+      rescue Exception => ex
+        retry if (n += 1) <= 4
+        raise ex
+      end
       rel_mirrors << m
     end
 
@@ -65,17 +71,29 @@ module Neomirror::Relationship
 
   def find_neo_relationship(rel_mirror = {})
     raise "Couldn't find neo_relationship declaration" unless rel_mirror[:complete] || (rel_mirror = self.class.rel_mirror(rel_mirror))
-    return nil unless rel = ::Neomirror.neo.get_relationship_index(rel_mirror[:index_name], :id, self.__send__(self.class.neo_primary_key))
-    ::Neography::Relationship.load(rel, ::Neomirror.neo)
+    n = 0
+    begin
+      return nil unless rel = ::Neomirror.neo.get_relationship_index(rel_mirror[:index_name], :id, self.__send__(self.class.neo_primary_key))
+      ::Neography::Relationship.load(rel, ::Neomirror.neo)
+    rescue Exception => ex
+      retry if (n += 1) <= 4
+      raise ex
+    end
   end
 
   def create_neo_relationship(rel_mirror = {})
     raise "Couldn't find neo_relationship declaration" unless rel_mirror[:complete] || (rel_mirror = self.class.rel_mirror(rel_mirror))
     return nil unless (m1 = related_object(rel_mirror[:start_node])) && (m2 = related_object(rel_mirror[:end_node])) &&
       neo_relationship_must_exist?(rel_mirror)
-    neo_rel = ::Neography::Relationship.create(rel_mirror[:type], m1.neo_node, m2.neo_node, neo_relationship_properties(rel_mirror))
-    ::Neomirror.neo.add_relationship_to_index(rel_mirror[:index_name], :id, self.__send__(self.class.neo_primary_key), neo_rel)
-    neo_rel
+    n = 0
+    begin
+      neo_rel = ::Neography::Relationship.create(rel_mirror[:type], m1.neo_node, m2.neo_node, neo_relationship_properties(rel_mirror))
+      ::Neomirror.neo.add_relationship_to_index(rel_mirror[:index_name], :id, self.__send__(self.class.neo_primary_key), neo_rel)
+      neo_rel
+    rescue Exception => ex
+      retry if (n += 1) <= 4
+      raise ex
+    end
   end
 
   def related_object(method_name)
@@ -90,7 +108,13 @@ module Neomirror::Relationship
           destroy_neo_relationship(rel_mirror, neo_rel: neo_rel)
           create_neo_relationship(rel_mirror)
         else
-          ::Neomirror.neo.reset_relationship_properties(neo_rel, neo_relationship_properties(rel_mirror))
+          n = 0
+          begin
+            ::Neomirror.neo.reset_relationship_properties(neo_rel, neo_relationship_properties(rel_mirror))
+          rescue Exception => ex
+            retry if (n += 1) <= 4
+            raise ex
+          end
         end
       else
         destroy_neo_relationship(rel_mirror, neo_rel: neo_rel)
@@ -103,8 +127,14 @@ module Neomirror::Relationship
   def destroy_neo_relationship(rel_mirror = {}, options = {})
     raise "Couldn't find neo_relationship declaration" unless rel_mirror[:complete] || (rel_mirror = self.class.rel_mirror(rel_mirror))
     if neo_rel = options.fetch(:neo_rel, find_neo_relationship(rel_mirror))
-      ::Neomirror.neo.remove_relationship_from_index(rel_mirror[:index_name], :id, self.__send__(self.class.neo_primary_key), neo_rel)
-      ::Neomirror.neo.delete_relationship(neo_rel)
+      n = 0
+      begin
+        ::Neomirror.neo.remove_relationship_from_index(rel_mirror[:index_name], :id, self.__send__(self.class.neo_primary_key), neo_rel)
+        ::Neomirror.neo.delete_relationship(neo_rel)
+      rescue Exception => ex
+        retry if (n += 1) <= 4
+        raise ex
+      end
     else
       true
     end
