@@ -62,8 +62,11 @@ module Neomirror::Relationship
 
   def neo_relationship_properties(rel_mirror = {})
     raise "Couldn't find neo_relationship declaration" unless rel_mirror[:complete] || (rel_mirror = self.class.rel_mirror(rel_mirror))
-    return nil unless rel_mirror[:properties]
-    rel_mirror[:properties].reduce({}) { |hash, (property, rule)| hash[property] = rule.call(self); hash }
+    hash = { :id => self.__send__(self.class.neo_primary_key) }
+    if rel_mirror[:properties]
+      rel_mirror[:properties].each { |property, rule| hash[property] = rule.call(self) }
+    end
+    hash
   end
 
   def neo_relationship_must_exist?(rel_mirror = {})

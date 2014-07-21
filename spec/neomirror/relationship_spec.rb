@@ -69,6 +69,10 @@ describe Neomirror::Relationship do
       staff.find_neo_relationship(type: :VISITOR_OF).should be_a Neography::Relationship
       staff.find_neo_relationship(type: :MANAGER_OF).should be_nil
     end
+
+    it "stores model id attribute as property" do
+      staff.neo_rel.id.should eq staff.id
+    end
   end
 
   describe "#update_neo_relationship" do
