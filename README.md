@@ -199,6 +199,28 @@ p.code = 'ABC'
 p.create_neo_node # => #<Neography::Node id="ABC">
 ```
 
+## Skip neomirror callbacks
+
+Any callback (for both neo node and neo relationship) can be skipped if `#skip_neo_callbacks` is set to true.
+
+```ruby
+# skip create_neo_node callback
+user = User.new
+user.skip_neo_callbacks = true
+user.save
+user.persisted? # => true
+user.find_neo_node # => nil
+
+# skip update_neo_node callback
+user = User.last
+user.skip_neo_callbacks = true
+user.name # => Ted
+user.neo_node.name # => Ted
+user.update_attributes(name: 'Dougal')
+user.name # => Dougal
+user.neo_node.name # => Ted
+```
+
 ## Contributing
 
 1. Fork it ( http://github.com/shhavel/neomirror/fork )

@@ -66,8 +66,10 @@ module Neomirror::Node
     end
   end
 
+  attr_accessor :skip_neo_callbacks
+
   def create_neo_node
-    return true unless self.class.neo_mirror
+    return true unless self.class.neo_mirror && !skip_neo_callbacks
     n = 0
     begin
       @neo_node = ::Neography::Node.create(neo_node_properties, ::Neomirror.neo)
@@ -80,7 +82,7 @@ module Neomirror::Node
   end
 
   def update_neo_node
-    return true unless self.class.neo_mirror
+    return true unless self.class.neo_mirror && !skip_neo_callbacks
     if find_neo_node
       n = 0
       begin
@@ -96,7 +98,7 @@ module Neomirror::Node
   end
 
   def destroy_neo_node
-    return true unless self.class.neo_mirror && find_neo_node
+    return true unless self.class.neo_mirror && !skip_neo_callbacks && find_neo_node
     n = 0
     begin
       ::Neomirror.neo.delete_node!(@neo_node)

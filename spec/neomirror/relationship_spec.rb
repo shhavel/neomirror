@@ -124,4 +124,26 @@ describe Neomirror::Relationship do
       staff.find_neo_relationship(type: :VISITOR_OF).should be_nil
     end
   end
+
+  describe "#skip_neo_callbacks" do
+    it "skips neo relationships create callback if skip_neo_callbacks set to true" do
+      staff = build(:staff)
+      staff.skip_neo_callbacks = true
+      staff.save
+      staff.find_neo_relationship(end_node: :premises, type: :STAFF_OF).should be_nil
+    end
+
+    it "skips neo relationships update callback if skip_neo_callbacks set to true" do
+      staff.skip_neo_callbacks = true
+      staff.neo_relationship(end_node: :premises, type: :STAFF_OF).roles.should == %w(visitor)
+      staff.update_attributes(roles: %w(visitor manager))
+      staff.neo_relationship(end_node: :premises, type: :STAFF_OF).roles.should == %w(visitor)
+    end
+
+    it "skips neo relationships destroy callback if skip_neo_callbacks set to true" do
+      staff.skip_neo_callbacks = true
+      staff.destroy
+      staff.find_neo_relationship(end_node: :premises, type: :STAFF_OF).should be_a Neography::Relationship
+    end
+  end
 end

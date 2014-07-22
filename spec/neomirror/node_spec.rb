@@ -69,4 +69,26 @@ describe Neomirror::Node do
       postcode.neo_node.id.should == 'ABC'
     end
   end
+
+  describe "#skip_neo_callbacks" do
+    it "skips neo node create callback if skip_neo_callbacks set to true" do
+      user = build(:user)
+      user.skip_neo_callbacks = true
+      user.save
+      user.find_neo_node.should be_nil
+    end
+
+    it "skips neo node update callback if skip_neo_callbacks set to true" do
+      user.skip_neo_callbacks = true
+      user.neo_node.name.should == 'Ted'
+      user.update_attributes(name: 'Dougal')
+      user.neo_node.name.should == 'Ted'
+    end
+
+    it "skips neo node destroy callback if skip_neo_callbacks set to true" do
+      user.skip_neo_callbacks = true
+      user.destroy
+      user.find_neo_node.should be_a Neography::Node
+    end
+  end
 end

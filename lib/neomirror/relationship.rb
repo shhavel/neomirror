@@ -145,17 +145,22 @@ module Neomirror::Relationship
     end
   end
 
+  attr_accessor :skip_neo_callbacks
+
   def create_neo_relationships
+    return true if skip_neo_callbacks
     self.class.rel_mirrors.each { |rel_mirror| create_neo_relationship(rel_mirror) }
     true
   end
 
   def update_neo_relationships
+    return true if skip_neo_callbacks
     self.class.rel_mirrors.each { |rel_mirror| update_neo_relationship(rel_mirror) }
     true
   end
 
   def destroy_neo_relationships
+    return true if skip_neo_callbacks
     self.class.rel_mirrors.each { |rel_mirror| destroy_neo_relationship(rel_mirror) }
     true
   end
