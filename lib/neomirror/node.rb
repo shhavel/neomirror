@@ -61,7 +61,7 @@ module Neomirror::Node
       return nil unless node = ::Neomirror.neo.find_nodes_labeled(label, { :id => id }).first
       @neo_node = ::Neography::Node.load(node, ::Neomirror.neo)
     rescue Exception => ex
-      retry if (n += 1) <= 4
+      sleep(0.4) and retry if (n += 1) < 2
       raise ex
     end
   end
@@ -76,7 +76,7 @@ module Neomirror::Node
       ::Neomirror.neo.set_label(@neo_node, self.class.neo_mirror[:label])
       @neo_node
     rescue Exception => ex
-      retry if (n += 1) <= 4
+      sleep(0.4) and retry if (n += 1) < 2
       raise ex
     end
   end
@@ -88,7 +88,7 @@ module Neomirror::Node
       begin
         ::Neomirror.neo.reset_node_properties(@neo_node, neo_node_properties) if self.class.neo_mirror[:properties]
       rescue Exception => ex
-        retry if (n += 1) <= 4
+        sleep(0.4) and retry if (n += 1) < 2
         raise ex
       end
       true
@@ -103,7 +103,7 @@ module Neomirror::Node
     begin
       ::Neomirror.neo.delete_node!(@neo_node)
     rescue Exception => ex
-      retry if (n += 1) <= 4
+      sleep(0.4) and retry if (n += 1) < 2
       raise ex
     end
     true

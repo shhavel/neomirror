@@ -81,7 +81,7 @@ module Neomirror::Relationship
       return nil unless rel = ::Neomirror.neo.get_relationship_index(rel_mirror[:index_name], :id, self.__send__(self.class.neo_primary_key))
       ::Neography::Relationship.load(rel, ::Neomirror.neo)
     rescue Exception => ex
-      retry if (n += 1) <= 4
+      sleep(0.4) and retry if (n += 1) < 2
       raise ex
     end
   end
@@ -96,7 +96,7 @@ module Neomirror::Relationship
       ::Neomirror.neo.add_relationship_to_index(rel_mirror[:index_name], :id, self.__send__(self.class.neo_primary_key), neo_rel)
       neo_rel
     rescue Exception => ex
-      retry if (n += 1) <= 4
+      sleep(0.4) and retry if (n += 1) < 2
       raise ex
     end
   end
@@ -117,7 +117,7 @@ module Neomirror::Relationship
           begin
             ::Neomirror.neo.reset_relationship_properties(neo_rel, neo_relationship_properties(rel_mirror))
           rescue Exception => ex
-            retry if (n += 1) <= 4
+            sleep(0.4) and retry if (n += 1) < 2
             raise ex
           end
         end
@@ -137,7 +137,7 @@ module Neomirror::Relationship
         ::Neomirror.neo.remove_relationship_from_index(rel_mirror[:index_name], :id, self.__send__(self.class.neo_primary_key), neo_rel)
         ::Neomirror.neo.delete_relationship(neo_rel)
       rescue Exception => ex
-        retry if (n += 1) <= 4
+        sleep(0.4) and retry if (n += 1) < 2
         raise ex
       end
     else
